@@ -70,41 +70,93 @@ class ContainerProxyUI {
         const containerList = document.getElementById('containerList');
         
         if (this.containers.length === 0) {
-            containerList.innerHTML = `
-                <div class="loading">
-                    <p>No containers found.</p>
-                    <p>Create containers in Firefox to assign proxies.</p>
-                </div>
-            `;
+            containerList.textContent = '';
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'loading';
+            const p1 = document.createElement('p');
+            p1.textContent = 'No containers found.';
+            const p2 = document.createElement('p');
+            p2.textContent = 'Create containers in Firefox to assign proxies.';
+            loadingDiv.appendChild(p1);
+            loadingDiv.appendChild(p2);
+            containerList.appendChild(loadingDiv);
             return;
         }
 
-        const containerHTML = this.containers.map(container => {
+        // Clear existing content safely
+        containerList.textContent = '';
+        
+        this.containers.forEach(container => {
             const proxy = this.proxies[container.cookieStoreId];
             const hasProxy = proxy && proxy.enabled;
             
-            return `
-                <div class="container-item ${hasProxy ? 'has-proxy' : ''}">
-                    <div class="container-info">
-                        <div class="container-icon" style="background-color: ${container.color}"></div>
-                        <div class="container-details">
-                            <h3>${this.escapeHtml(container.name)}</h3>
-                            <p>${hasProxy ? `${proxy.type} - ${proxy.host}:${proxy.port}${proxy.label ? ` (${proxy.label})` : ''}` : 'No proxy assigned'}</p>
-                        </div>
-                    </div>
-                    <div class="container-actions">
-                        ${hasProxy ? 
-                            `<span class="proxy-status enabled">Active</span>
-                             <button class="btn btn-primary btn-small" data-action="edit" data-container="${container.cookieStoreId}">Edit</button>
-                             <button class="btn btn-danger btn-small" data-action="remove" data-container="${container.cookieStoreId}">Remove</button>` :
-                            `<button class="btn btn-primary btn-small" data-action="add" data-container="${container.cookieStoreId}" data-container-name="${this.escapeHtml(container.name)}">Add Proxy</button>`
-                        }
-                    </div>
-                </div>
-            `;
-        }).join('');
-
-        containerList.innerHTML = containerHTML;
+            // Create container item
+            const containerItem = document.createElement('div');
+            containerItem.className = `container-item ${hasProxy ? 'has-proxy' : ''}`;
+            
+            // Container info section
+            const containerInfo = document.createElement('div');
+            containerInfo.className = 'container-info';
+            
+            const containerIcon = document.createElement('div');
+            containerIcon.className = 'container-icon';
+            containerIcon.style.backgroundColor = container.color;
+            
+            const containerDetails = document.createElement('div');
+            containerDetails.className = 'container-details';
+            
+            const nameHeader = document.createElement('h3');
+            nameHeader.textContent = container.name;
+            
+            const proxyInfo = document.createElement('p');
+            proxyInfo.textContent = hasProxy ? 
+                `${proxy.type} - ${proxy.host}:${proxy.port}${proxy.label ? ` (${proxy.label})` : ''}` : 
+                'No proxy assigned';
+            
+            containerDetails.appendChild(nameHeader);
+            containerDetails.appendChild(proxyInfo);
+            containerInfo.appendChild(containerIcon);
+            containerInfo.appendChild(containerDetails);
+            
+            // Container actions section
+            const containerActions = document.createElement('div');
+            containerActions.className = 'container-actions';
+            
+            if (hasProxy) {
+                const proxyStatus = document.createElement('span');
+                proxyStatus.className = 'proxy-status enabled';
+                proxyStatus.textContent = 'Active';
+                
+                const editBtn = document.createElement('button');
+                editBtn.className = 'btn btn-primary btn-small';
+                editBtn.textContent = 'Edit';
+                editBtn.dataset.action = 'edit';
+                editBtn.dataset.container = container.cookieStoreId;
+                
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'btn btn-danger btn-small';
+                removeBtn.textContent = 'Remove';
+                removeBtn.dataset.action = 'remove';
+                removeBtn.dataset.container = container.cookieStoreId;
+                
+                containerActions.appendChild(proxyStatus);
+                containerActions.appendChild(editBtn);
+                containerActions.appendChild(removeBtn);
+            } else {
+                const addBtn = document.createElement('button');
+                addBtn.className = 'btn btn-primary btn-small';
+                addBtn.textContent = 'Add Proxy';
+                addBtn.dataset.action = 'add';
+                addBtn.dataset.container = container.cookieStoreId;
+                addBtn.dataset.containerName = container.name;
+                
+                containerActions.appendChild(addBtn);
+            }
+            
+            containerItem.appendChild(containerInfo);
+            containerItem.appendChild(containerActions);
+            containerList.appendChild(containerItem);
+        });
         
         // Add event delegation for dynamically created buttons
         containerList.addEventListener('click', (e) => {

@@ -22,41 +22,85 @@ async function loadContainerOverview() {
         const overview = document.getElementById('containerOverview');
         
         if (containers.length === 0) {
-            overview.innerHTML = `
-                <p>No containers found. <a href="#" onclick="openContainerManager()">Create some containers</a> to get started.</p>
-            `;
+            // Safe DOM manipulation instead of innerHTML
+            overview.textContent = '';
+            const p = document.createElement('p');
+            p.textContent = 'No containers found. ';
+            const link = document.createElement('a');
+            link.href = '#';
+            link.textContent = 'Create some containers';
+            link.onclick = openContainerManager;
+            p.appendChild(link);
+            p.appendChild(document.createTextNode(' to get started.'));
+            overview.appendChild(p);
             return;
         }
 
-        const containerHTML = containers.map(container => {
+        // Clear existing content safely
+        overview.textContent = '';
+        
+        containers.forEach(container => {
             const proxy = proxies[container.cookieStoreId];
             const hasProxy = proxy && proxy.enabled;
             
-            return `
-                <div class="container-item ${hasProxy ? 'has-proxy' : ''}">
-                    <div class="container-info">
-                        <div class="container-icon" style="background-color: ${container.color}"></div>
-                        <div class="container-details">
-                            <h3>${escapeHtml(container.name)}</h3>
-                            <p><strong>ID:</strong> ${container.cookieStoreId}</p>
-                            <p><strong>Proxy:</strong> ${hasProxy ? `${proxy.type} - ${proxy.host}:${proxy.port}` : 'None assigned'}</p>
-                        </div>
-                    </div>
-                    <div class="container-actions">
-                        ${hasProxy ? 
-                            '<span class="proxy-status enabled">Proxy Active</span>' :
-                            '<span class="proxy-status disabled">No Proxy</span>'
-                        }
-                    </div>
-                </div>
-            `;
-        }).join('');
-
-        overview.innerHTML = containerHTML;
+            // Create container item element
+            const containerItem = document.createElement('div');
+            containerItem.className = `container-item ${hasProxy ? 'has-proxy' : ''}`;
+            
+            // Container info section
+            const containerInfo = document.createElement('div');
+            containerInfo.className = 'container-info';
+            
+            const containerIcon = document.createElement('div');
+            containerIcon.className = 'container-icon';
+            containerIcon.style.backgroundColor = container.color;
+            
+            const containerDetails = document.createElement('div');
+            containerDetails.className = 'container-details';
+            
+            const nameHeader = document.createElement('h3');
+            nameHeader.textContent = container.name;
+            
+            const idParagraph = document.createElement('p');
+            idParagraph.innerHTML = '<strong>ID:</strong> ';
+            idParagraph.appendChild(document.createTextNode(container.cookieStoreId));
+            
+            const proxyParagraph = document.createElement('p');
+            proxyParagraph.innerHTML = '<strong>Proxy:</strong> ';
+            proxyParagraph.appendChild(document.createTextNode(
+                hasProxy ? `${proxy.type} - ${proxy.host}:${proxy.port}` : 'None assigned'
+            ));
+            
+            containerDetails.appendChild(nameHeader);
+            containerDetails.appendChild(idParagraph);
+            containerDetails.appendChild(proxyParagraph);
+            
+            containerInfo.appendChild(containerIcon);
+            containerInfo.appendChild(containerDetails);
+            
+            // Container actions section
+            const containerActions = document.createElement('div');
+            containerActions.className = 'container-actions';
+            
+            const proxyStatus = document.createElement('span');
+            proxyStatus.className = `proxy-status ${hasProxy ? 'enabled' : 'disabled'}`;
+            proxyStatus.textContent = hasProxy ? 'Proxy Active' : 'No Proxy';
+            containerActions.appendChild(proxyStatus);
+            
+            // Assemble the container item
+            containerItem.appendChild(containerInfo);
+            containerItem.appendChild(containerActions);
+            
+            overview.appendChild(containerItem);
+        });
     } catch (error) {
         console.error('Error loading container overview:', error);
-        document.getElementById('containerOverview').innerHTML = 
-            '<p style="color: red;">Error loading container information.</p>';
+        const overview = document.getElementById('containerOverview');
+        overview.textContent = '';
+        const errorP = document.createElement('p');
+        errorP.style.color = 'red';
+        errorP.textContent = 'Error loading container information.';
+        overview.appendChild(errorP);
     }
 }
 
