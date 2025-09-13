@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Container Proxy Settings</title>
+    <link rel="stylesheet" href="popup.css">
+    <style>
+        body {
+            max-width: none;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .content {
+            max-height: none;
+        }
+        .section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .section h2 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+        
+        /* Improve text readability */
+        .security-features {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        
+        .security-considerations {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        
+        .gluetun-config {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 14px;
+            color: #495057;
+        }
+        
+        /* Dark mode for options page */
+        @media (prefers-color-scheme: dark) {
+            body {
+                background: #1a1a1a;
+                color: #e0e0e0;
+            }
+            
+            .container {
+                background: #2d2d2d;
+            }
+            
+            .section {
+                background: #3a3a3a;
+                color: #e0e0e0;
+            }
+            
+            .section h2 {
+                color: #e0e0e0;
+            }
+            
+            header {
+                background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+            }
+            
+            .security-features {
+                background: #155724;
+                border-color: #28a745;
+                color: #d4edda;
+            }
+            
+            .security-considerations {
+                background: #856404;
+                border-color: #ffc107;
+                color: #fff3cd;
+            }
+            
+            .gluetun-config {
+                background: #2d2d2d;
+                border-color: #495057;
+                color: #e0e0e0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔒 Container Proxy Settings</h1>
+            <p>Manage proxy configurations for Firefox containers</p>
+        </header>
+
+        <div class="content">
+            <div class="section">
+                <h2>📋 Container Overview</h2>
+                <div id="containerOverview">
+                    <div class="loading">Loading container information...</div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>ℹ️ How to Use</h2>
+                <ol>
+                    <li><strong>Create containers:</strong> Use Firefox's container feature to create different containers for different purposes</li>
+                    <li><strong>Assign proxies:</strong> Click the extension icon and assign a proxy to each container</li>
+                    <li><strong>Browse securely:</strong> Open tabs in different containers to route traffic through different proxies</li>
+                </ol>
+                
+                <h3>Supported Proxy Types:</h3>
+                <ul>
+                    <li><strong>HTTP:</strong> Standard HTTP proxy</li>
+                    <li><strong>HTTPS:</strong> Secure HTTP proxy</li>
+                    <li><strong>SOCKS5:</strong> SOCKS5 proxy (recommended for Gluetun)</li>
+                </ul>
+            </div>
+
+            <div class="section">
+                <h2>🔧 Gluetun Setup</h2>
+                <p>If you're using Gluetun containers for VPN routing:</p>
+                <ol>
+                    <li>Start your Gluetun container with HTTP proxy enabled</li>
+                    <li>Note the container's IP address and proxy port (usually 8888)</li>
+                    <li>Use proxy type "HTTP" and enter the container IP and port</li>
+                    <li>Leave username/password empty unless specifically configured</li>
+                </ol>
+                
+                <div class="form-group">
+                    <label>Example Gluetun Configuration:</label>
+                    <div class="gluetun-config">
+                        Type: HTTP<br>
+                        Host: 172.17.0.2 (your Gluetun container IP)<br>
+                        Port: 8888<br>
+                        Username: (leave empty)<br>
+                        Password: (leave empty)
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>🔒 Security & Privacy</h2>
+                <div class="security-features">
+                    <h4>✅ Security Features:</h4>
+                    <ul style="margin: 10px 0; padding-left: 20px;">
+                        <li><strong>DNS Protection:</strong> SOCKS5 proxies route DNS through the proxy (proxyDNS: true)</li>
+                        <li><strong>Credential Security:</strong> Credentials only sent when explicitly provided</li>
+                        <li><strong>Container Isolation:</strong> Each container uses its own proxy independently</li>
+                        <li><strong>No Data Logging:</strong> Extension doesn't log or store browsing data</li>
+                    </ul>
+                </div>
+                
+                <div class="security-considerations">
+                    <h4>⚠️ Security Considerations:</h4>
+                    <ul style="margin: 10px 0; padding-left: 20px;">
+                        <li><strong>HTTP Proxies:</strong> Traffic to proxy is unencrypted (use HTTPS/SOCKS5 when possible)</li>
+                        <li><strong>WebRTC Leaks:</strong> Disable WebRTC in Firefox to prevent IP leaks</li>
+                        <li><strong>Default Container:</strong> Default Firefox container doesn't use proxy</li>
+                        <li><strong>Credentials Storage:</strong> Stored locally in Firefox (encrypted by Firefox)</li>
+                    </ul>
+                    <p style="margin-top: 10px;"><strong>Recommendation:</strong> Use SOCKS5 proxies with Gluetun for best security.</p>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>🎯 Quick Actions</h2>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;">
+                    <button class="btn btn-primary" id="manageProxies">🔧 Manage Proxies</button>
+                    <button class="btn btn-secondary" id="exportConfig">📤 Export Config</button>
+                    <button class="btn btn-secondary" id="importConfig">📥 Import Config</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="options.js"></script>
+</body>
+</html>

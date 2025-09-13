@@ -1,0 +1,26 @@
+# Development files
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+temp/
+tmp/
+*.bak
+
+# Firefox extension development
+web-ext-artifacts/
+*.xpi
+*.zip
+
+# Node modules (if any)
+node_modules/
+package-lock.json
+yarn.lock

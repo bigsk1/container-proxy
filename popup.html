@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Container Proxy</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔒 Container Proxy</h1>
+            <p>Assign proxies to containers</p>
+        </header>
+
+        <div class="content">
+            <div class="container-list" id="containerList">
+                <div class="loading">Loading containers...</div>
+            </div>
+        </div>
+
+        <footer>
+            <button class="btn btn-secondary" id="openOptions">⚙️ Settings</button>
+            <button class="btn btn-primary" id="addProxy">➕ Add Proxy</button>
+        </footer>
+    </div>
+
+    <!-- Add/Edit Proxy Modal -->
+    <div class="modal" id="proxyModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Add Proxy</h2>
+                <button class="close" id="closeModal">&times;</button>
+            </div>
+            
+            <form id="proxyForm">
+                <div class="form-group">
+                    <label for="containerSelect">Container:</label>
+                    <select id="containerSelect" required>
+                        <option value="">Select a container...</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="proxyType">Proxy Type:</label>
+                    <select id="proxyType" required>
+                        <option value="HTTP">HTTP</option>
+                        <option value="HTTPS">HTTPS</option>
+                        <option value="SOCKS5">SOCKS5</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="proxyHost">Host:</label>
+                    <input type="text" id="proxyHost" placeholder="192.168.1.100" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="proxyPort">Port:</label>
+                    <input type="number" id="proxyPort" placeholder="8080" min="1" max="65535" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="proxyLabel">Label/Comment (optional):</label>
+                    <input type="text" id="proxyLabel" placeholder="e.g., Seattle Server, Work VPN, Adult Sites Only">
+                </div>
+
+                <div class="form-group">
+                    <label for="proxyUsername">Username (optional):</label>
+                    <input type="text" id="proxyUsername" placeholder="username">
+                </div>
+
+                <div class="form-group">
+                    <label for="proxyPassword">Password (optional):</label>
+                    <input type="password" id="proxyPassword" placeholder="password">
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="cancelProxy">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="testProxy">Test Connection</button>
+                    <button type="submit" class="btn btn-success">Save Proxy</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>
