@@ -115,6 +115,18 @@ These permissions are necessary for any proxy extension to function properly.
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
+## Privacy Policy
+
+Container Proxy is committed to protecting your privacy:
+
+- **No Data Collection**: This extension does not collect, store, or transmit any personal data
+- **Local Storage Only**: All proxy configurations are stored locally in Firefox's encrypted storage
+- **No Analytics**: No tracking, analytics, or telemetry of any kind
+- **Open Source**: Full source code available at https://github.com/bigsk1/container-proxy
+- **No External Connections**: Extension only communicates with your configured proxy servers
+
+This extension operates entirely offline except for connecting to your specified proxy servers.
+
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
