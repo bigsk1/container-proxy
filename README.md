@@ -14,7 +14,10 @@ A modern Firefox extension for assigning different proxies to Firefox containers
 
 ## 📦 Installation
 
-### From Release (Recommended)
+### From Firefox
+[https://addons.mozilla.org/en-US/firefox/addon/container-proxy-v1-0-3/](https://addons.mozilla.org/en-US/firefox/addon/container-proxy-v1-0-3/)
+
+### From Release
 1. Download the latest release from the [Releases](../../releases) page
 2. Open Firefox and go to `about:addons`
 3. Click the gear icon and select "Install Add-on From File"
