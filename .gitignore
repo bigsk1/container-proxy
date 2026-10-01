@@ -20,7 +20,21 @@ web-ext-artifacts/
 *.xpi
 *.zip
 
-# Node modules (if any)
+# Dependencies (keep package-lock.json in Git)
 node_modules/
-package-lock.json
-yarn.lock
+
+# Local secrets and exported proxy settings
+.env
+.env.*
+!.env.example
+.aws/
+*.pem
+*.key
+backups/
+exports/
+container-proxy-????-??-??.json
+container-proxy-config-????-??-??.json
+
+# Local agent metadata
+.codex/
+.agents/

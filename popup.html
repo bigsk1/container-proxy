@@ -1,88 +1,50 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="en">
 <head>
-    <meta charset="utf-8">
-    <title>Container Proxy</title>
-    <link rel="stylesheet" href="popup.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Container Proxy</title>
+  <link rel="stylesheet" href="popup.css">
+  <script src="proxy-config.js" defer></script>
+  <script src="popup.js" defer></script>
 </head>
-<body>
-    <div class="container">
-        <header>
-            <h1>🔒 Container Proxy</h1>
-            <p>Assign proxies to containers</p>
-        </header>
-
-        <div class="content">
-            <div class="container-list" id="containerList">
-                <div class="loading">Loading containers...</div>
-            </div>
-        </div>
-
-        <footer>
-            <button class="btn btn-secondary" id="openOptions">⚙️ Settings</button>
-            <button class="btn btn-primary" id="addProxy">➕ Add Proxy</button>
-        </footer>
-    </div>
-
-    <!-- Add/Edit Proxy Modal -->
-    <div class="modal" id="proxyModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="modalTitle">Add Proxy</h2>
-                <button class="close" id="closeModal">&times;</button>
-            </div>
-            
-            <form id="proxyForm">
-                <div class="form-group">
-                    <label for="containerSelect">Container:</label>
-                    <select id="containerSelect" required>
-                        <option value="">Select a container...</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="proxyType">Proxy Type:</label>
-                    <select id="proxyType" required>
-                        <option value="HTTP">HTTP</option>
-                        <option value="HTTPS">HTTPS</option>
-                        <option value="SOCKS5">SOCKS5</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="proxyHost">Host:</label>
-                    <input type="text" id="proxyHost" placeholder="192.168.1.100" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="proxyPort">Port:</label>
-                    <input type="number" id="proxyPort" placeholder="8080" min="1" max="65535" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="proxyLabel">Label/Comment (optional):</label>
-                    <input type="text" id="proxyLabel" placeholder="e.g., Seattle Server, Work VPN, Adult Sites Only">
-                </div>
-
-                <div class="form-group">
-                    <label for="proxyUsername">Username (optional):</label>
-                    <input type="text" id="proxyUsername" placeholder="username">
-                </div>
-
-                <div class="form-group">
-                    <label for="proxyPassword">Password (optional):</label>
-                    <input type="password" id="proxyPassword" placeholder="password">
-                </div>
-
-                <div class="form-actions">
-                    <button type="button" class="btn btn-secondary" id="cancelProxy">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="testProxy">Test Connection</button>
-                    <button type="submit" class="btn btn-success">Save Proxy</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <script src="popup.js"></script>
+<body class="popup">
+  <header class="app-header">
+    <div class="brand"><img src="icon.svg" width="36" height="36" alt=""><div><h1>Container Proxy</h1><p>Your containers. Your routes.</p></div></div>
+    <button id="refresh" class="btn btn-small" type="button">Refresh</button>
+  </header>
+  <main>
+    <div class="section-heading"><h2>Container routes</h2><span id="summary">Loading saved settings…</span></div>
+      <section id="permissionNotice" class="notice" hidden>
+        <strong>Website access is needed</strong>
+        <p>Container routing cannot work until Firefox grants access to all websites.</p>
+        <button id="grantPermission" class="btn btn-primary" type="button">Grant website access</button>
+      </section>
+    <p id="statusMessage" class="message" role="status" aria-live="polite" hidden></p>
+    <div id="containerList" class="container-list" aria-live="polite"><p class="empty-state">Loading containers and saved proxies…</p></div>
+  </main>
+  <footer class="popup-footer"><button id="openOptions" class="btn" type="button">Settings &amp; backups</button><button id="addProxy" class="btn btn-primary" type="button" disabled>Assign proxy</button></footer>
+  <p class="privacy-line">Local settings · No telemetry</p>
+  <dialog id="proxyModal" aria-labelledby="modalTitle">
+    <div class="modal-heading"><h2 id="modalTitle">Assign a proxy</h2><button class="icon-button" id="closeModal" type="button" aria-label="Close editor">×</button></div>
+    <form id="proxyForm">
+      <div class="form-group"><label for="containerSelect">Container</label><select id="containerSelect" required></select></div>
+      <div class="form-row">
+        <div class="form-group"><label for="proxyType">Protocol</label><select id="proxyType" required><option value="HTTP">HTTP</option><option value="HTTPS">HTTPS · TLS to proxy</option><option value="SOCKS5">SOCKS5 · remote DNS</option><option value="SOCKS4">SOCKS4 · local DNS</option></select></div>
+        <div class="form-group"><label for="proxyPort">Port</label><input id="proxyPort" type="number" min="1" max="65535" step="1" placeholder="8080" required></div>
+      </div>
+      <div class="form-group"><label for="proxyHost">Hostname or IP address</label><input id="proxyHost" type="text" placeholder="proxy.example.com" maxlength="253" spellcheck="false" autocomplete="off" required></div>
+      <div class="form-group"><label for="proxyLabel">Label <span class="optional">optional</span></label><input id="proxyLabel" type="text" placeholder="Work gateway" maxlength="120"></div>
+      <div class="form-row">
+        <div class="form-group"><label for="proxyUsername">Username <span class="optional">optional</span></label><input id="proxyUsername" type="text" maxlength="1024" autocomplete="off" spellcheck="false"></div>
+        <div class="form-group"><label for="proxyPassword">Password <span class="optional">optional</span></label><input id="proxyPassword" type="password" maxlength="1024" autocomplete="off"></div>
+      </div>
+      <label class="checkbox-label"><input id="showPassword" type="checkbox"> Show password</label>
+      <label class="checkbox-label"><input id="proxyEnabled" type="checkbox" checked> Enable proxy for this container</label>
+      <p class="form-note">Settings stay in your Firefox profile. HTTP and SOCKS do not encrypt the connection to the proxy. Use HTTPS for TLS to the proxy.</p>
+      <p id="formStatus" class="message" role="status" aria-live="polite" hidden></p>
+      <div class="form-actions"><button id="cancelProxy" class="btn" type="button">Cancel</button><button id="validateProxy" class="btn" type="button">Validate</button><button id="saveProxy" class="btn btn-primary" type="submit">Save proxy</button></div>
+    </form>
+  </dialog>
 </body>
 </html>

@@ -1,148 +1,88 @@
 # Container Proxy
 
-A modern Firefox extension for assigning different proxies to Firefox containers, enabling secure and organized browsing with multiple proxy configurations.
+Assign a different HTTP, HTTPS, SOCKS5 or legacy SOCKS4 proxy to each Firefox container. Settings stay in your Firefox profile; the extension has no runtime dependencies, analytics or remote code.
 
-## 🌟 Features
+Version **1.1.0** requires **Firefox 140 or later on desktop**. The extension ID remains container-proxy@bigsk1.com, so an approved update can reuse your existing installation and settings.
 
-- **Container-Based Proxy Assignment**: Assign different proxies to different Firefox containers
-- **Multiple Proxy Types**: Support for HTTP, HTTPS, and SOCKS5 proxies
-- **Proxy Labels**: Add custom labels/comments to identify your proxies (e.g., "Seattle Server", "Work VPN")
-- **Dark Mode Support**: Automatic dark theme based on system preferences
-- **Export/Import**: Backup and restore your proxy configurations
-- **Connection Testing**: Test proxy connections before saving
-- **Modern UI**: Clean, intuitive interface with responsive design
+## Install and use
 
-## 📦 Installation
+Install the signed add-on from [Mozilla Add-ons](https://addons.mozilla.org/en-US/firefox/addon/container-proxy-v1-0-3/). That URL is the existing listing; it will continue to show the published version until the new version is submitted and approved.
 
-### From Firefox
-[https://addons.mozilla.org/en-US/firefox/addon/container-proxy-v1-0-3/](https://addons.mozilla.org/en-US/firefox/addon/container-proxy-v1-0-3/)
+1. Create containers using Firefox’s new tab button or container settings.
+2. Open the extension and choose **Assign proxy** for a container.
+3. Enter the proxy protocol, hostname or IP, port, and optional label and credentials.
+4. Save, then use **New tab** to open that container. Routing starts without opening the extension again.
+5. Reload existing tabs after changing routes. Previously established connections are not disconnected by changing an assignment.
 
-### From Release
-1. Download the latest release from the [Releases](../../releases) page
-2. Open Firefox and go to `about:addons`
-3. Click the gear icon and select "Install Add-on From File"
-4. Select the downloaded `.zip` file
+If Firefox has not granted website access, the popup displays **Grant website access**. Routing cannot work without that access. Updates adding permissions may need to be accepted in Firefox before the extension runs.
 
-### Manual Installation (Development)
-1. Clone or download this repository
-2. Open Firefox and go to `about:debugging`
-3. Click "This Firefox" → "Load Temporary Add-on"
-4. Navigate to the `container-proxy-modern` folder and select `manifest.json`
+**Proxy enabled** means an assignment is enabled; it does not certify a successful connection. **Validate** checks the settings format. To check a connection, browse in a new container tab and use a destination you trust to verify the exit IP. The extension does not contact an external IP-check or test service automatically.
 
-## 🚀 Quick Start
+You can edit or pause routes in either the popup or the settings page. Paused, unassigned, default and private contexts use Firefox’s existing routing, including any browser-wide proxy configured separately.
 
-### 1. Set up Firefox Containers
-- Go to Firefox Settings → General → Tabs
-- Enable "Multi-Account Containers"
-- Create containers for different purposes (Work, Personal, etc.)
+## Protocols and protection
 
-### 2. Configure Proxies
-- Click the Container Proxy extension icon
-- Click "Add Proxy" for any container
-- Fill in your proxy details:
-  - **Type**: HTTP, HTTPS, or SOCKS5
-  - **Host**: Your proxy server IP/hostname
-  - **Port**: Proxy server port
-  - **Label**: Optional description (e.g., "Seattle Server")
-  - **Credentials**: Username/password if required
+| Protocol | Connection to proxy | DNS handling |
+| --- | --- | --- |
+| HTTP | No transport encryption provided by the proxy protocol | Handled by the HTTP proxy for proxied destinations |
+| HTTPS | TLS between Firefox and the proxy | Handled by the HTTP proxy for proxied destinations |
+| SOCKS5 | No transport encryption provided by SOCKS itself | Remote DNS enabled for supported requests |
+| SOCKS4 | Legacy protocol, no transport encryption or password authentication | Local DNS; use SOCKS5 for remote DNS |
 
-### 3. Browse Securely
-- Open tabs in different containers
-- Each container will automatically use its assigned proxy
-- Default container remains unproxied
+HTTPS websites retain their own TLS protection when tunneled through a proxy. SOCKS5 is useful for remote DNS but is not encryption by itself. A proxy provider can observe metadata and any unencrypted traffic sent through it.
 
-## 🔧 Supported Proxy Types
+Enabled assignments return a proxy list ending with null, which [prevents Firefox’s fallback to a browser-defined proxy](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/proxy/onRequest). Invalid saved assignments are displayed as needing repair, and their container requests are blocked until repaired or removed. Storage read failures block intercepted container requests instead of treating them as unconfigured.
 
-### HTTP Proxy
-- Standard HTTP proxy
-- Traffic to proxy is unencrypted
-- Good for basic routing
+This is a browser proxy manager. It does not cover WebRTC UDP, other applications, every Firefox system request, or traffic outside Firefox’s proxy API. Revoking website access, disabling/uninstalling the extension, or another extension taking over routing removes its protection. Review Firefox’s WebRTC and proxy settings if you need stronger IP protection.
 
-### HTTPS Proxy
-- Encrypted connection to proxy
-- More secure than HTTP
-- Recommended for sensitive browsing
+For a local Gluetun HTTP proxy, use the address and port reachable from Firefox, such as 127.0.0.1:8888 when that port is published on your machine. Use the authentication configured on your proxy.
 
-### SOCKS5 Proxy (Recommended)
-- Most secure proxy type
-- Supports DNS routing through proxy
-- Best choice for privacy
+## Backups
 
-## 🛡️ Security & Privacy
+**Settings & backups** manages routes directly and imports/exports JSON backups.
 
-### ✅ Security Features
-- **DNS Protection**: SOCKS5 proxies route DNS through the proxy
-- **Credential Security**: Credentials only sent when explicitly provided
-- **Container Isolation**: Each container uses its own proxy independently
-- **No Data Logging**: Extension doesn't log or store browsing data
+- Usernames and passwords are excluded by default. Re-enter them after restoring if your proxy needs authentication.
+- Including credentials requires an explicit checkbox and confirmation. That file contains plain text secrets; store it privately.
+- Imports accept legacy Container Proxy backups and version 1 backups. All assignments are validated before one storage write.
+- Containers are matched by unique name, rather than trusting container IDs from another Firefox profile. Create matching names before restoring.
+- Imports show the affected containers and require confirmation before replacing their assignments. Unrelated assignments are preserved.
 
-### ⚠️ Security Considerations
-- **HTTP Proxies**: Traffic to proxy is unencrypted (use HTTPS/SOCKS5 when possible)
-- **WebRTC Leaks**: Disable WebRTC in Firefox to prevent IP leaks
-- **Default Container**: Default Firefox container doesn't use proxy
-- **Credentials Storage**: Stored locally in Firefox (encrypted by Firefox)
+## Privacy and permissions
 
-**Recommendation**: Use SOCKS5 proxies with services like Gluetun for best security.
+No telemetry, remote scripts, browsing logs, or developer-operated network services are used. Proxy hosts, labels and credentials are stored in browser.storage.local. **The extension does not encrypt this storage**; protect your Firefox profile and backups. See [PRIVACY.md](PRIVACY.md).
 
-## 🐳 Gluetun Setup Example
+| Permission | Purpose |
+| --- | --- |
+| storage | Save local proxy assignments |
+| contextualIdentities, cookies | Read/manage container identities and their cookie-store IDs; no cookie contents are read |
+| proxy | Choose a proxy per request |
+| webRequest, webRequestBlocking | Authenticate verified proxy challenges, cancel requests for invalid/unavailable settings, and clear auth retry state |
+| all URLs | Route requests across sites, including subresources; proxy API routing requires host access |
 
-If you're using Gluetun containers for VPN routing:
+The manifest declares no data collection through [Firefox’s built-in data-consent system](https://extensionworkshop.com/documentation/develop/firefox-builtin-data-consent/). HTTP/HTTPS proxy credentials are released only for a genuine proxy authentication challenge whose challenger and selected proxy match the enabled container assignment. SOCKS credentials are passed through the proxy API.
 
-```
-Type: HTTP
-Host: 172.17.0.2 (your Gluetun container IP)
-Port: 8888
-Username: (leave empty)
-Password: (leave empty)
-Label: Gluetun VPN
-```
+## Development and verification
 
-## 📋 Permissions Explained
+Use Node.js 22 or later:
 
-This extension requires the following permissions:
+    npm ci --ignore-scripts
+    npm test
+    npm run lint
+    npm audit --audit-level=low
+    npm run build
 
-- **`webRequest`**: To intercept web requests for proxy routing
-- **`webRequestBlocking`**: To modify requests before they're sent
-- **`proxy`**: To configure proxy settings
-- **`contextualIdentities`**: To work with Firefox containers
-- **`storage`**: To save proxy configurations
-- **`<all_urls>`**: To route traffic from all websites through proxies
+Tests cover initialization, auth destination checks, protocol/DNS mapping, persistence errors, concurrent saves and backup validation. Mozilla’s web-ext is pinned in the lockfile and used only for development. The release bundle contains no npm packages.
 
-These permissions are necessary for any proxy extension to function properly.
+For a temporary install, open about:debugging → **This Firefox** → **Load Temporary Add-on**, then select this directory’s manifest.json. This install disappears when Firefox closes.
 
-## 🤝 Contributing
+The build creates web-ext-artifacts/container_proxy-1.1.0.zip from an explicit source-file allowlist. Submit that archive as a new version of the existing AMO listing. A ZIP is an upload artifact; ordinary Firefox release installations require Mozilla’s signed XPI. See [RELEASE.md](RELEASE.md) for the manual checks and submission steps.
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+GitHub Actions runs tests, Mozilla lint, dependency audit and packaging on pushes and pull requests. Dependabot checks development tools and pinned Actions weekly.
 
-## Privacy Policy
+## Changes and reporting
 
-Container Proxy is committed to protecting your privacy:
+See [CHANGELOG.md](CHANGELOG.md). Report ordinary issues using this repository’s issue tracker. For security reports, use GitHub’s private vulnerability reporting where available; see [SECURITY.md](SECURITY.md).
 
-- **No Data Collection**: This extension does not collect, store, or transmit any personal data
-- **Local Storage Only**: All proxy configurations are stored locally in Firefox's encrypted storage
-- **No Analytics**: No tracking, analytics, or telemetry of any kind
-- **Open Source**: Full source code available at https://github.com/bigsk1/container-proxy
-- **No External Connections**: Extension only communicates with your configured proxy servers
+The interface improvements use familiar proxy-manager features such as pause/resume, labels, backups and direct container actions. No FoxyProxy code is included.
 
-This extension operates entirely offline except for connecting to your specified proxy servers.
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🐛 Bug Reports & Feature Requests
-
-Please use the [GitHub Issues](../../issues) page to report bugs or request features.
-
-## 🔗 Related Projects
-
-- [Firefox Multi-Account Containers](https://addons.mozilla.org/en-US/firefox/addon/multi-account-containers/)
-- [Gluetun VPN Container](https://github.com/qdm12/gluetun)
-
----
-
-**Made with ❤️ for privacy-conscious browsing**
+Licensed under [MIT](LICENSE).

@@ -1,385 +1,254 @@
-// Container Proxy - Popup JavaScript
+"use strict";
+
 class ContainerProxyUI {
-    constructor() {
-        this.containers = [];
-        this.proxies = {};
-        this.currentEditingContainer = null;
-        this.init();
+  constructor() {
+    this.containers = [];
+    this.proxies = {};
+    this.hasPermission = false;
+    this.loading = true;
+    this.refreshSequence = 0;
+    this.dialog = document.getElementById("proxyModal");
+    this.setupEventListeners();
+    this.ready = this.refresh();
+  }
+
+  async request(message) {
+    const response = await browser.runtime.sendMessage(message);
+    if (!response?.ok) throw new Error(response?.error || "The extension could not respond. Try Refresh.");
+    return response;
+  }
+
+  showMessage(message, error = false, target = "statusMessage") {
+    const element = document.getElementById(target);
+    element.textContent = message;
+    element.classList.toggle("error", error);
+    element.hidden = !message;
+  }
+
+  async refresh() {
+    const sequence = ++this.refreshSequence;
+    try {
+      const [containers, state, tabs] = await Promise.all([
+        browser.contextualIdentities.query({}), this.request({ action: "getState" }),
+        browser.tabs.query({ active: true, currentWindow: true })
+      ]);
+      if (sequence !== this.refreshSequence) return;
+      this.containers = containers;
+      this.proxies = state.proxies;
+      this.hasPermission = state.hasPermission;
+      this.currentContainer = tabs[0]?.cookieStoreId;
+      this.loading = false;
+      document.getElementById("permissionNotice").hidden = this.hasPermission;
+      if (document.getElementById("statusMessage").classList.contains("error")) this.showMessage("");
+      this.renderContainers();
+      document.getElementById("addProxy").disabled = !containers.length;
+    } catch (error) {
+      if (sequence !== this.refreshSequence) return;
+      this.loading = true;
+      document.getElementById("addProxy").disabled = true;
+      document.getElementById("containerList").replaceChildren();
+      this.showMessage(error.message, true);
+      document.getElementById("summary").textContent = "Settings unavailable";
     }
+  }
 
-    async init() {
-        console.log('Container Proxy UI: Initializing...');
-        await this.loadData();
-        this.setupEventListeners();
-        this.renderContainers();
+  setupEventListeners() {
+    document.getElementById("refresh").addEventListener("click", () => this.refresh());
+    document.getElementById("openOptions")?.addEventListener("click", () => browser.runtime.openOptionsPage());
+    document.getElementById("addProxy").addEventListener("click", () => this.showProxyModal());
+    document.getElementById("grantPermission").addEventListener("click", () => {
+      // Request directly in the click event so Firefox recognizes the user gesture.
+      browser.permissions.request({ origins: ["<all_urls>"] }).then(granted => {
+        if (!granted) throw new Error("Website access is required for container proxy routing.");
+        return this.refresh();
+      }).catch(error => this.showMessage(error.message, true));
+    });
+    document.getElementById("containerList").addEventListener("click", event => {
+      const button = event.target.closest("button[data-action]");
+      if (button) this.runAction(button);
+    });
+    document.getElementById("closeModal").addEventListener("click", () => this.dialog.close());
+    document.getElementById("cancelProxy").addEventListener("click", () => this.dialog.close());
+    this.dialog.addEventListener("close", () => {
+      document.getElementById("proxyForm").reset();
+      document.getElementById("proxyPassword").type = "password";
+      document.getElementById("showPassword").checked = false;
+      this.showMessage("", false, "formStatus");
+      this.currentEditingContainer = null;
+    });
+    document.getElementById("showPassword").addEventListener("change", event => {
+      document.getElementById("proxyPassword").type = event.target.checked ? "text" : "password";
+    });
+    document.getElementById("validateProxy").addEventListener("click", () => {
+      try {
+        this.readForm();
+        this.showMessage("Settings are valid. This does not test the connection.", false, "formStatus");
+      } catch (error) { this.showMessage(error.message, true, "formStatus"); }
+    });
+    document.getElementById("proxyForm").addEventListener("submit", event => {
+      event.preventDefault();
+      this.saveProxy();
+    });
+    const changed = () => this.refresh();
+    browser.storage.onChanged.addListener((changes, area) => {
+      if (area === "local" && changes.containerProxies) changed();
+    });
+    browser.contextualIdentities.onCreated.addListener(changed);
+    browser.contextualIdentities.onUpdated.addListener(changed);
+    browser.contextualIdentities.onRemoved.addListener(changed);
+    browser.permissions.onAdded.addListener(changed);
+    browser.permissions.onRemoved.addListener(changed);
+  }
+
+  renderContainers() {
+    const list = document.getElementById("containerList");
+    list.replaceChildren();
+    const enabled = this.containers.filter(container => this.proxies[container.cookieStoreId]?.enabled && !this.proxies[container.cookieStoreId]?.invalid).length;
+    document.getElementById("summary").textContent = this.containers.length + " containers · " + enabled + " proxies enabled";
+    if (!this.containers.length) {
+      const empty = document.createElement("p");
+      empty.className = "empty-state";
+      empty.textContent = "Create a container from Firefox’s new tab button, then assign a proxy here.";
+      list.append(empty);
+      return;
     }
-
-    async loadData() {
-        try {
-            // Load containers
-            this.containers = await browser.contextualIdentities.query({});
-            console.log('Loaded containers:', this.containers.length);
-
-            // Load proxy configurations
-            const response = await browser.runtime.sendMessage({ action: 'getAllProxies' });
-            this.proxies = response || {};
-            console.log('Loaded proxy configs:', Object.keys(this.proxies).length);
-        } catch (error) {
-            console.error('Error loading data:', error);
-            this.showError('Failed to load container data');
-        }
+    for (const container of this.containers) {
+      const proxy = this.proxies[container.cookieStoreId];
+      const item = document.createElement("article");
+      item.className = "container-item";
+      if (container.cookieStoreId === this.currentContainer) item.classList.add("current");
+      const info = document.createElement("div");
+      info.className = "container-info";
+      const dot = document.createElement("span");
+      dot.className = "container-color";
+      dot.style.backgroundColor = container.colorCode || "#72818d";
+      dot.setAttribute("aria-hidden", "true");
+      const details = document.createElement("div");
+      details.className = "container-details";
+      const name = document.createElement("h2");
+      name.textContent = container.name;
+      if (container.cookieStoreId === this.currentContainer) {
+        const current = document.createElement("span");
+        current.className = "current-label";
+        current.textContent = "Current tab";
+        name.append(current);
+      }
+      const endpoint = document.createElement("p");
+      endpoint.className = "endpoint";
+      endpoint.textContent = proxy?.invalid ? "Saved settings need repair" : proxy ?
+        proxy.type + " · " + (proxy.host.includes(":") ? "[" + proxy.host + "]" : proxy.host) + ":" + proxy.port : "Uses Firefox routing";
+      const status = document.createElement("p");
+      status.className = "route-status";
+      status.textContent = proxy?.invalid ? "Blocked until edited or removed" : proxy?.enabled ? this.hasPermission ?
+        "Proxy enabled · no direct fallback" : "Routing unavailable · grant website access" : proxy ? "Paused · uses Firefox routing" : "No proxy assigned";
+      status.classList.toggle("enabled", !!proxy?.enabled && !proxy.invalid && this.hasPermission);
+      details.append(name, endpoint, status);
+      if (proxy?.label) {
+        const label = document.createElement("p");
+        label.className = "proxy-label";
+        label.textContent = proxy.label;
+        details.append(label);
+      }
+      info.append(dot, details);
+      const actions = document.createElement("div");
+      actions.className = "container-actions";
+      const addButton = (action, label, className = "") => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "btn btn-small " + className;
+        button.textContent = label;
+        button.dataset.action = action;
+        button.dataset.container = container.cookieStoreId;
+        button.setAttribute("aria-label", label + ": " + container.name);
+        actions.append(button);
+      };
+      addButton("open", "New tab");
+      if (proxy) {
+        if (!proxy.invalid) addButton("toggle", proxy.enabled ? "Pause" : "Enable");
+        addButton("edit", "Edit", "btn-primary");
+        addButton("remove", "Remove", "btn-danger");
+      } else addButton("edit", "Assign proxy", "btn-primary");
+      item.append(info, actions);
+      list.append(item);
     }
+  }
 
-    setupEventListeners() {
-        // Main buttons
-        document.getElementById('openOptions').addEventListener('click', () => {
-            browser.runtime.openOptionsPage();
-        });
+  async runAction(button) {
+    button.disabled = true;
+    const id = button.dataset.container;
+    try {
+      switch (button.dataset.action) {
+        case "open":
+          await browser.tabs.create({ cookieStoreId: id });
+          break;
+        case "edit":
+          this.showProxyModal(id);
+          break;
+        case "toggle":
+          if (this.proxies[id].enabled && !confirm("Pause this proxy? This container will use Firefox’s normal routing. Reload existing tabs after changing routing.")) break;
+          await this.request({ action: "toggleProxy", containerId: id });
+          await this.refresh();
+          this.showMessage("Routing updated. Reload existing tabs to apply it to new requests.");
+          break;
+        case "remove":
+          if (!confirm("Remove this proxy? This container will use Firefox’s normal routing.")) break;
+          await this.request({ action: "removeProxy", containerId: id });
+          await this.refresh();
+          this.showMessage("Proxy removed.");
+          break;
+      }
+    } catch (error) { this.showMessage(error.message, true); }
+    finally { button.disabled = false; }
+  }
 
-        document.getElementById('addProxy').addEventListener('click', () => {
-            this.showProxyModal();
-        });
-
-        // Modal controls
-        document.getElementById('closeModal').addEventListener('click', () => {
-            this.hideProxyModal();
-        });
-
-        document.getElementById('cancelProxy').addEventListener('click', () => {
-            this.hideProxyModal();
-        });
-
-        document.getElementById('testProxy').addEventListener('click', () => {
-            this.testProxyConnection();
-        });
-
-        document.getElementById('proxyForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.saveProxy();
-        });
-
-        // Close modal when clicking outside
-        document.getElementById('proxyModal').addEventListener('click', (e) => {
-            if (e.target.id === 'proxyModal') {
-                this.hideProxyModal();
-            }
-        });
+  showProxyModal(id = null) {
+    if (this.loading) return;
+    this.currentEditingContainer = id;
+    const form = document.getElementById("proxyForm");
+    form.reset();
+    this.showMessage("", false, "formStatus");
+    const select = document.getElementById("containerSelect");
+    select.replaceChildren();
+    for (const container of this.containers) {
+      const option = document.createElement("option");
+      option.value = container.cookieStoreId;
+      option.textContent = container.name;
+      select.append(option);
     }
-
-    renderContainers() {
-        const containerList = document.getElementById('containerList');
-        
-        if (this.containers.length === 0) {
-            containerList.textContent = '';
-            const loadingDiv = document.createElement('div');
-            loadingDiv.className = 'loading';
-            const p1 = document.createElement('p');
-            p1.textContent = 'No containers found.';
-            const p2 = document.createElement('p');
-            p2.textContent = 'Create containers in Firefox to assign proxies.';
-            loadingDiv.appendChild(p1);
-            loadingDiv.appendChild(p2);
-            containerList.appendChild(loadingDiv);
-            return;
-        }
-
-        // Clear existing content safely
-        containerList.textContent = '';
-        
-        this.containers.forEach(container => {
-            const proxy = this.proxies[container.cookieStoreId];
-            const hasProxy = proxy && proxy.enabled;
-            
-            // Create container item
-            const containerItem = document.createElement('div');
-            containerItem.className = `container-item ${hasProxy ? 'has-proxy' : ''}`;
-            
-            // Container info section
-            const containerInfo = document.createElement('div');
-            containerInfo.className = 'container-info';
-            
-            const containerIcon = document.createElement('div');
-            containerIcon.className = 'container-icon';
-            containerIcon.style.backgroundColor = container.color;
-            
-            const containerDetails = document.createElement('div');
-            containerDetails.className = 'container-details';
-            
-            const nameHeader = document.createElement('h3');
-            nameHeader.textContent = container.name;
-            
-            const proxyInfo = document.createElement('p');
-            proxyInfo.textContent = hasProxy ? 
-                `${proxy.type} - ${proxy.host}:${proxy.port}${proxy.label ? ` (${proxy.label})` : ''}` : 
-                'No proxy assigned';
-            
-            containerDetails.appendChild(nameHeader);
-            containerDetails.appendChild(proxyInfo);
-            containerInfo.appendChild(containerIcon);
-            containerInfo.appendChild(containerDetails);
-            
-            // Container actions section
-            const containerActions = document.createElement('div');
-            containerActions.className = 'container-actions';
-            
-            if (hasProxy) {
-                const proxyStatus = document.createElement('span');
-                proxyStatus.className = 'proxy-status enabled';
-                proxyStatus.textContent = 'Active';
-                
-                const editBtn = document.createElement('button');
-                editBtn.className = 'btn btn-primary btn-small';
-                editBtn.textContent = 'Edit';
-                editBtn.dataset.action = 'edit';
-                editBtn.dataset.container = container.cookieStoreId;
-                
-                const removeBtn = document.createElement('button');
-                removeBtn.className = 'btn btn-danger btn-small';
-                removeBtn.textContent = 'Remove';
-                removeBtn.dataset.action = 'remove';
-                removeBtn.dataset.container = container.cookieStoreId;
-                
-                containerActions.appendChild(proxyStatus);
-                containerActions.appendChild(editBtn);
-                containerActions.appendChild(removeBtn);
-            } else {
-                const addBtn = document.createElement('button');
-                addBtn.className = 'btn btn-primary btn-small';
-                addBtn.textContent = 'Add Proxy';
-                addBtn.dataset.action = 'add';
-                addBtn.dataset.container = container.cookieStoreId;
-                addBtn.dataset.containerName = container.name;
-                
-                containerActions.appendChild(addBtn);
-            }
-            
-            containerItem.appendChild(containerInfo);
-            containerItem.appendChild(containerActions);
-            containerList.appendChild(containerItem);
-        });
-        
-        // Add event delegation for dynamically created buttons
-        containerList.addEventListener('click', (e) => {
-            if (e.target.dataset.action) {
-                const action = e.target.dataset.action;
-                const containerId = e.target.dataset.container;
-                
-                switch (action) {
-                    case 'add':
-                        this.showProxyModal(containerId);
-                        break;
-                    case 'edit':
-                        this.editProxy(containerId);
-                        break;
-                    case 'remove':
-                        this.removeProxy(containerId);
-                        break;
-                }
-            }
-        });
+    select.disabled = !!id;
+    if (id) select.value = id;
+    const proxy = id && this.proxies[id];
+    document.getElementById("modalTitle").textContent = proxy ? "Edit proxy" : "Assign a proxy";
+    if (proxy && !proxy.invalid) {
+      for (const [field, key] of [["proxyType", "type"], ["proxyHost", "host"], ["proxyPort", "port"], ["proxyLabel", "label"], ["proxyUsername", "username"], ["proxyPassword", "password"]]) {
+        document.getElementById(field).value = proxy[key] ?? "";
+      }
+      document.getElementById("proxyEnabled").checked = proxy.enabled;
     }
+    this.dialog.showModal();
+    document.getElementById("proxyHost").focus();
+  }
 
-    showProxyModal(containerId = null) {
-        this.currentEditingContainer = containerId;
-        const modal = document.getElementById('proxyModal');
-        const title = document.getElementById('modalTitle');
-        const containerSelect = document.getElementById('containerSelect');
+  readForm() {
+    return ContainerProxyConfig.normalize({
+      type: document.getElementById("proxyType").value, host: document.getElementById("proxyHost").value,
+      port: document.getElementById("proxyPort").value, label: document.getElementById("proxyLabel").value,
+      username: document.getElementById("proxyUsername").value, password: document.getElementById("proxyPassword").value,
+      enabled: document.getElementById("proxyEnabled").checked
+    });
+  }
 
-        // Set title
-        title.textContent = containerId ? 'Edit Proxy' : 'Add Proxy';
-
-        // Populate container select
-        containerSelect.innerHTML = '<option value="">Select a container...</option>';
-        this.containers.forEach(container => {
-            const option = document.createElement('option');
-            option.value = container.cookieStoreId;
-            option.textContent = container.name;
-            option.selected = container.cookieStoreId === containerId;
-            containerSelect.appendChild(option);
-        });
-
-        // If editing existing proxy, populate form with existing data
-        if (containerId && this.proxies[containerId]) {
-            const proxy = this.proxies[containerId];
-            document.getElementById('proxyType').value = proxy.type;
-            document.getElementById('proxyHost').value = proxy.host;
-            document.getElementById('proxyPort').value = proxy.port;
-            document.getElementById('proxyLabel').value = proxy.label || '';
-            document.getElementById('proxyUsername').value = proxy.username || '';
-            document.getElementById('proxyPassword').value = proxy.password || '';
-            containerSelect.disabled = true;
-        } else {
-            // Clear form for new proxy
-            document.getElementById('proxyForm').reset();
-            
-            // If adding to specific container, pre-select and disable dropdown
-            if (containerId) {
-                containerSelect.value = containerId;
-                containerSelect.disabled = true;
-            } else {
-                containerSelect.disabled = false;
-            }
-        }
-
-        modal.classList.add('show');
-    }
-
-    hideProxyModal() {
-        const modal = document.getElementById('proxyModal');
-        modal.classList.remove('show');
-        this.currentEditingContainer = null;
-    }
-
-    async saveProxy() {
-        const containerId = this.currentEditingContainer || document.getElementById('containerSelect').value;
-        
-        if (!containerId) {
-            this.showError('Please select a container');
-            return;
-        }
-
-        const username = document.getElementById('proxyUsername').value.trim();
-        const password = document.getElementById('proxyPassword').value.trim();
-        
-        const proxyConfig = {
-            type: document.getElementById('proxyType').value,
-            host: document.getElementById('proxyHost').value.trim(),
-            port: document.getElementById('proxyPort').value,
-            label: document.getElementById('proxyLabel').value.trim() || null,
-            username: username || null,
-            password: password || null,
-            enabled: true
-        };
-
-        // Basic validation
-        if (!proxyConfig.host || !proxyConfig.port) {
-            this.showError('Host and port are required');
-            return;
-        }
-
-        try {
-            const success = await browser.runtime.sendMessage({
-                action: 'setProxy',
-                containerId: containerId,
-                proxyConfig: proxyConfig
-            });
-
-            if (success) {
-                this.proxies[containerId] = proxyConfig;
-                this.hideProxyModal();
-                this.renderContainers();
-                this.showSuccess('Proxy configuration saved successfully!');
-            } else {
-                this.showError('Failed to save proxy configuration');
-            }
-        } catch (error) {
-            console.error('Error saving proxy:', error);
-            this.showError('Error saving proxy: ' + error.message);
-        }
-    }
-
-    async removeProxy(containerId) {
-        if (!confirm('Remove proxy configuration for this container?')) {
-            return;
-        }
-
-        try {
-            const success = await browser.runtime.sendMessage({
-                action: 'removeProxy',
-                containerId: containerId
-            });
-
-            if (success) {
-                delete this.proxies[containerId];
-                this.renderContainers();
-                this.showSuccess('Proxy configuration removed');
-            } else {
-                this.showError('Failed to remove proxy configuration');
-            }
-        } catch (error) {
-            console.error('Error removing proxy:', error);
-            this.showError('Error removing proxy: ' + error.message);
-        }
-    }
-
-    editProxy(containerId) {
-        this.showProxyModal(containerId);
-    }
-
-    async testProxyConnection() {
-        const proxyConfig = {
-            type: document.getElementById('proxyType').value,
-            host: document.getElementById('proxyHost').value.trim(),
-            port: document.getElementById('proxyPort').value,
-            username: document.getElementById('proxyUsername').value.trim(),
-            password: document.getElementById('proxyPassword').value.trim()
-        };
-
-        if (!proxyConfig.host || !proxyConfig.port) {
-            this.showError('Please enter host and port first');
-            return;
-        }
-
-        const testButton = document.getElementById('testProxy');
-        const originalText = testButton.textContent;
-        testButton.textContent = 'Testing...';
-        testButton.disabled = true;
-
-        try {
-            const result = await browser.runtime.sendMessage({
-                action: 'testProxy',
-                proxyConfig: proxyConfig
-            });
-
-            if (result.success) {
-                this.showSuccess(result.message);
-            } else {
-                this.showError(result.message);
-            }
-        } catch (error) {
-            console.error('Error testing proxy:', error);
-            this.showError('Proxy test failed: ' + error.message);
-        } finally {
-            testButton.textContent = originalText;
-            testButton.disabled = false;
-        }
-    }
-
-    showError(message) {
-        console.error('Container Proxy Error:', message);
-        alert('❌ Error: ' + message);
-    }
-
-    showSuccess(message) {
-        console.log('Container Proxy Success:', message);
-        // Create a temporary success message
-        const successDiv = document.createElement('div');
-        successDiv.style.cssText = `
-            position: fixed; top: 20px; right: 20px; z-index: 10000;
-            background: #28a745; color: white; padding: 12px 20px;
-            border-radius: 4px; font-size: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-        `;
-        successDiv.textContent = '✅ ' + message;
-        document.body.appendChild(successDiv);
-        
-        setTimeout(() => {
-            if (successDiv.parentNode) {
-                successDiv.parentNode.removeChild(successDiv);
-            }
-        }, 3000);
-    }
-
-    escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
+  async saveProxy() {
+    const save = document.getElementById("saveProxy");
+    save.disabled = true;
+    try {
+      await this.request({ action: "setProxy", containerId: document.getElementById("containerSelect").value, proxyConfig: this.readForm() });
+      this.dialog.close();
+      await this.refresh();
+      this.showMessage("Proxy saved. Reload existing tabs to use the updated route.");
+    } catch (error) { this.showMessage(error.message, true, "formStatus"); }
+    finally { save.disabled = false; }
+  }
 }
 
-// Initialize when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    window.ui = new ContainerProxyUI();
-});
-
-// Make functions available globally for onclick handlers
-window.ui = null;
+document.addEventListener("DOMContentLoaded", () => { window.ui = new ContainerProxyUI(); });

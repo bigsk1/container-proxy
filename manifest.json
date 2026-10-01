@@ -1,12 +1,13 @@
 {
   "manifest_version": 3,
   "name": "Container Proxy",
-  "version": "1.0.3",
-  "description": "Assign different proxies to Firefox containers for secure browsing",
+  "version": "1.1.0",
+  "description": "Assign HTTP, HTTPS and SOCKS proxies to Firefox containers, with local settings and no telemetry.",
   
   "permissions": [
     "storage",
     "contextualIdentities",
+    "cookies",
     "proxy",
     "webRequest",
     "webRequestBlocking"
@@ -17,8 +18,11 @@
   ],
   
   "background": {
-    "scripts": ["background.js"],
-    "type": "module"
+    "scripts": ["proxy-config.js", "background.js"]
+  },
+
+  "content_security_policy": {
+    "extension_pages": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
   },
   
   "action": {
@@ -47,7 +51,13 @@
   "browser_specific_settings": {
     "gecko": {
       "id": "container-proxy@bigsk1.com",
-      "strict_min_version": "109.0"
+      "strict_min_version": "140.0",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
+    },
+    "gecko_android": {
+      "strict_min_version": "142.0"
     }
   }
 }

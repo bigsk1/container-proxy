@@ -1,205 +1,51 @@
-// Container Proxy - Options Page JavaScript
-document.addEventListener('DOMContentLoaded', async () => {
-    await loadContainerOverview();
-    setupEventListeners();
+"use strict";
+
+document.addEventListener("DOMContentLoaded", () => {
+  const message = (text, error = false) => window.ui.showMessage(text, error, "backupStatus");
+  document.getElementById("extensionVersion").textContent = browser.runtime.getManifest().version;
+  document.getElementById("exportConfig").addEventListener("click", async () => {
+    try {
+      const includeCredentials = document.getElementById("includeCredentials").checked;
+      if (includeCredentials && !confirm("This file will contain proxy usernames and passwords in plain text. Save it in a private location and do not share it. Continue?")) return;
+      const state = await window.ui.request({ action: "getState" });
+      const containers = await browser.contextualIdentities.query({});
+      if (Object.values(state.proxies).some(proxy => proxy.invalid)) throw new Error("Repair or remove invalid proxy settings before exporting.");
+      const backup = ContainerProxyConfig.makeBackup(containers, state.proxies, browser.runtime.getManifest().version, includeCredentials);
+      const url = URL.createObjectURL(new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "container-proxy-" + new Date().toISOString().slice(0, 10) + ".json";
+      document.body.append(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      message(includeCredentials ? "Backup exported with plain text credentials." : "Backup exported without credentials. Re-enter credentials after restoring.");
+      document.getElementById("includeCredentials").checked = false;
+    } catch (error) { message(error.message, true); }
+  });
+  document.getElementById("importConfig").addEventListener("click", () => document.getElementById("importFile").click());
+  document.getElementById("importFile").addEventListener("change", async event => {
+    const file = event.target.files[0];
+    if (!file) return;
+    const button = document.getElementById("importConfig");
+    button.disabled = true;
+    try {
+      if (file.size > ContainerProxyConfig.MAX_IMPORT_BYTES) throw new Error("Backup is too large (maximum 1 MiB).");
+      let backup;
+      try { backup = JSON.parse(await file.text()); } catch { throw new Error("The file is not valid JSON."); }
+      const containers = await browser.contextualIdentities.query({});
+      const entries = ContainerProxyConfig.parseBackup(backup, containers);
+      const names = entries.map(entry => containers.find(container => container.cookieStoreId === entry.containerId).name);
+      const credentials = entries.some(entry => entry.proxyConfig.username || entry.proxyConfig.password);
+      const warning = "Replace proxy assignments for: " + names.join(", ") + "?\n\n" +
+        "This changes where these containers send new requests." +
+        (credentials ? " The file contains plain text credentials." : " Re-enter credentials after restoring if needed.") +
+        "\nOnly import backups you trust.";
+      if (!confirm(warning)) return;
+      const result = await window.ui.request({ action: "importConfig", backup });
+      await window.ui.refresh();
+      message(result.imported + " proxy assignments imported. Reload existing tabs to use the updated routes.");
+    } catch (error) { message(error.message, true); }
+    finally { event.target.value = ""; button.disabled = false; }
+  });
 });
-
-function setupEventListeners() {
-    document.getElementById('manageProxies').addEventListener('click', openExtensionPopup);
-    document.getElementById('exportConfig').addEventListener('click', exportConfig);
-    document.getElementById('importConfig').addEventListener('click', importConfig);
-}
-
-async function loadContainerOverview() {
-    try {
-        console.log('Loading container overview...');
-        const containers = await browser.contextualIdentities.query({});
-        console.log('Found containers:', containers.length);
-        
-        const proxies = await browser.runtime.sendMessage({ action: 'getAllProxies' }) || {};
-        console.log('Found proxy configs:', Object.keys(proxies).length, proxies);
-        
-        const overview = document.getElementById('containerOverview');
-        
-        if (containers.length === 0) {
-            // Safe DOM manipulation instead of innerHTML
-            overview.textContent = '';
-            const p = document.createElement('p');
-            p.textContent = 'No containers found. ';
-            const link = document.createElement('a');
-            link.href = '#';
-            link.textContent = 'Create some containers';
-            link.onclick = openContainerManager;
-            p.appendChild(link);
-            p.appendChild(document.createTextNode(' to get started.'));
-            overview.appendChild(p);
-            return;
-        }
-
-        // Clear existing content safely
-        overview.textContent = '';
-        
-        containers.forEach(container => {
-            const proxy = proxies[container.cookieStoreId];
-            const hasProxy = proxy && proxy.enabled;
-            
-            // Create container item element
-            const containerItem = document.createElement('div');
-            containerItem.className = `container-item ${hasProxy ? 'has-proxy' : ''}`;
-            
-            // Container info section
-            const containerInfo = document.createElement('div');
-            containerInfo.className = 'container-info';
-            
-            const containerIcon = document.createElement('div');
-            containerIcon.className = 'container-icon';
-            containerIcon.style.backgroundColor = container.color;
-            
-            const containerDetails = document.createElement('div');
-            containerDetails.className = 'container-details';
-            
-            const nameHeader = document.createElement('h3');
-            nameHeader.textContent = container.name;
-            
-            const idParagraph = document.createElement('p');
-            idParagraph.innerHTML = '<strong>ID:</strong> ';
-            idParagraph.appendChild(document.createTextNode(container.cookieStoreId));
-            
-            const proxyParagraph = document.createElement('p');
-            proxyParagraph.innerHTML = '<strong>Proxy:</strong> ';
-            proxyParagraph.appendChild(document.createTextNode(
-                hasProxy ? `${proxy.type} - ${proxy.host}:${proxy.port}` : 'None assigned'
-            ));
-            
-            containerDetails.appendChild(nameHeader);
-            containerDetails.appendChild(idParagraph);
-            containerDetails.appendChild(proxyParagraph);
-            
-            containerInfo.appendChild(containerIcon);
-            containerInfo.appendChild(containerDetails);
-            
-            // Container actions section
-            const containerActions = document.createElement('div');
-            containerActions.className = 'container-actions';
-            
-            const proxyStatus = document.createElement('span');
-            proxyStatus.className = `proxy-status ${hasProxy ? 'enabled' : 'disabled'}`;
-            proxyStatus.textContent = hasProxy ? 'Proxy Active' : 'No Proxy';
-            containerActions.appendChild(proxyStatus);
-            
-            // Assemble the container item
-            containerItem.appendChild(containerInfo);
-            containerItem.appendChild(containerActions);
-            
-            overview.appendChild(containerItem);
-        });
-    } catch (error) {
-        console.error('Error loading container overview:', error);
-        const overview = document.getElementById('containerOverview');
-        overview.textContent = '';
-        const errorP = document.createElement('p');
-        errorP.style.color = 'red';
-        errorP.textContent = 'Error loading container information.';
-        overview.appendChild(errorP);
-    }
-}
-
-function openExtensionPopup() {
-    // Open the extension popup in a centered window
-    const width = 500;
-    const height = 600;
-    const left = Math.round((screen.width / 2) - (width / 2));
-    const top = Math.round((screen.height / 2) - (height / 2));
-    
-    browser.windows.create({
-        url: browser.runtime.getURL('popup.html'),
-        type: 'popup',
-        width: width,
-        height: height,
-        left: left,
-        top: top
-    });
-}
-
-function openContainerManager() {
-    // Open Firefox's container management page
-    browser.tabs.create({ url: 'about:preferences#containers' });
-}
-
-async function exportConfig() {
-    try {
-        const proxies = await browser.runtime.sendMessage({ action: 'getAllProxies' }) || {};
-        const containers = await browser.contextualIdentities.query({});
-        
-        const config = {
-            version: '1.0.0',
-            timestamp: new Date().toISOString(),
-            containers: containers.map(c => ({
-                id: c.cookieStoreId,
-                name: c.name,
-                color: c.color,
-                proxy: proxies[c.cookieStoreId] || null
-            }))
-        };
-        
-        const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `container-proxy-config-${new Date().toISOString().split('T')[0]}.json`;
-        a.click();
-        
-        URL.revokeObjectURL(url);
-        alert('Configuration exported successfully!');
-    } catch (error) {
-        console.error('Error exporting config:', error);
-        alert('Error exporting configuration: ' + error.message);
-    }
-}
-
-function importConfig() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-    
-    input.onchange = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        
-        try {
-            const text = await file.text();
-            const config = JSON.parse(text);
-            
-            if (!config.containers || !Array.isArray(config.containers)) {
-                throw new Error('Invalid configuration file format');
-            }
-            
-            let imported = 0;
-            for (const container of config.containers) {
-                if (container.proxy) {
-                    await browser.runtime.sendMessage({
-                        action: 'setProxy',
-                        containerId: container.id,
-                        proxyConfig: container.proxy
-                    });
-                    imported++;
-                }
-            }
-            
-            alert(`Configuration imported successfully! ${imported} proxy configurations restored.`);
-            await loadContainerOverview();
-        } catch (error) {
-            console.error('Error importing config:', error);
-            alert('Error importing configuration: ' + error.message);
-        }
-    };
-    
-    input.click();
-}
-
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
