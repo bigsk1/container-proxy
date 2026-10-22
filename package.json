@@ -10,5 +10,5 @@
     "lint": "web-ext lint --config web-ext-config.cjs --warnings-as-errors",
     "build": "node scripts/build.cjs"
   },
-  "devDependencies": { "web-ext": "10.7.0" }
+  "devDependencies": { "web-ext": "10.8.0" }
 }
