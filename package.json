@@ -1,14 +1,17 @@
 {
   "name": "container-proxy",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "private": true,
   "description": "Firefox container proxy extension",
   "license": "MIT",
   "engines": { "node": ">=22" },
   "scripts": {
     "test": "node --test --experimental-test-isolation=none tests/*.test.cjs",
-    "lint": "web-ext lint --config web-ext-config.cjs --warnings-as-errors",
+    "lint": "node scripts/lint.cjs",
     "build": "node scripts/build.cjs"
   },
-  "devDependencies": { "web-ext": "10.7.0" }
+  "devDependencies": {
+    "addons-linter": "10.14.0",
+    "jszip": "3.10.2"
+  }
 }

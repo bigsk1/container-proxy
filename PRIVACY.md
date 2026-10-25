@@ -1,4 +1,4 @@
-# Privacy policy — Container Proxy 1.1.0
+# Privacy policy — Container Proxy 1.1.1
 
 Container Proxy assigns user-selected proxy servers to Firefox containers. It has no analytics, advertising, telemetry, remote code, developer-operated backend, automatic IP-check service, or browsing-history log.
 

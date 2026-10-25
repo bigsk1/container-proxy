@@ -2,11 +2,11 @@
 
 Assign a different HTTP, HTTPS, SOCKS5 or legacy SOCKS4 proxy to each Firefox container. Settings stay in your Firefox profile; the extension has no runtime dependencies, analytics or remote code.
 
-Version **1.1.0** requires **Firefox 140 or later on desktop**. The extension ID remains container-proxy@bigsk1.com, so an approved update can reuse your existing installation and settings.
+Version **1.1.1** requires **Firefox 140 or later on desktop**. The extension ID remains container-proxy@bigsk1.com, so an approved update can reuse your existing installation and settings.
 
 ## Install and use
 
-Install the signed add-on from [Mozilla Add-ons](https://addons.mozilla.org/en-US/firefox/addon/container-proxy-v1-0-3/). That URL is the existing listing; it will continue to show the published version until the new version is submitted and approved.
+Install the signed add-on from [Mozilla Add-ons](https://addons.mozilla.org/en-US/firefox/addon/container-proxy-v1-0-3/). New versions become available on this existing listing after Mozilla approves and publishes them.
 
 1. Create containers using Firefox’s new tab button or container settings.
 2. Open the extension and choose **Assign proxy** for a container.
@@ -71,13 +71,15 @@ Use Node.js 22 or later:
     npm audit --audit-level=low
     npm run build
 
-Tests cover initialization, auth destination checks, protocol/DNS mapping, persistence errors, concurrent saves and backup validation. Mozilla’s web-ext is pinned in the lockfile and used only for development. The release bundle contains no npm packages.
+Tests cover initialization, auth destination checks, protocol/DNS mapping, persistence errors, concurrent saves, backup validation and release tooling. Mozilla’s addons-linter and JSZip are pinned in the lockfile and used only for development. Lint and packaging share an explicit source-file allowlist. The release bundle contains no npm packages.
+
+The development tools use addons-linter and JSZip directly because web-ext includes an [unpatched node-forge dependency](https://github.com/advisories/GHSA-86w9-cpqp-85rv) through its Android runner. The project’s lint and build commands do not require browser or Android runners.
 
 For a temporary install, open about:debugging → **This Firefox** → **Load Temporary Add-on**, then select this directory’s manifest.json. This install disappears when Firefox closes.
 
-The build creates web-ext-artifacts/container_proxy-1.1.0.zip from an explicit source-file allowlist. Submit that archive as a new version of the existing AMO listing. A ZIP is an upload artifact; ordinary Firefox release installations require Mozilla’s signed XPI. See [RELEASE.md](RELEASE.md) for the manual checks and submission steps.
+The build creates web-ext-artifacts/container_proxy-1.1.1.zip from an explicit source-file allowlist. Submit that archive as a new version of the existing AMO listing. A ZIP is an upload artifact; ordinary Firefox release installations require Mozilla’s signed XPI. See [RELEASE.md](RELEASE.md) for the manual checks and submission steps.
 
-GitHub Actions runs tests, Mozilla lint, dependency audit and packaging on pushes and pull requests. Dependabot checks development tools and pinned Actions weekly.
+GitHub Actions runs tests, Mozilla lint, dependency audit and packaging on pushes and pull requests, using the latest Node 24 patch. Successful runs retain the submission ZIP for 30 days: open **Actions → Extension checks → a successful run → Artifacts** and download container_proxy-1.1.1.zip. The uploaded artifact is the submission ZIP itself. Submit it through the AMO developer dashboard for signing and publication. Dependabot checks development tools and pinned Actions weekly.
 
 ## Changes and reporting
 

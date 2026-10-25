@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Container Proxy",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Assign HTTP, HTTPS and SOCKS proxies to Firefox containers, with local settings and no telemetry.",
   
   "permissions": [

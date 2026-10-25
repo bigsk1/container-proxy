@@ -1,18 +1,26 @@
 /* An allowlist prevents local backups, secrets and development files entering the AMO bundle. */
-const { copyFileSync, mkdtempSync, rmSync } = require("node:fs");
-const { tmpdir } = require("node:os");
+const { mkdir, readFile, writeFile } = require("node:fs/promises");
 const path = require("node:path");
-const { execFileSync } = require("node:child_process");
+const JSZip = require("jszip");
+const files = require("./extension-files.cjs");
 
 const root = path.resolve(__dirname, "..");
-const staging = mkdtempSync(path.join(tmpdir(), "container-proxy-build-"));
-const files = ["manifest.json", "proxy-config.js", "background.js", "popup.html", "popup.js", "popup.css", "options.html", "options.js", "icon.svg"];
-try {
-  for (const file of files) copyFileSync(path.join(root, file), path.join(staging, file));
-  execFileSync(process.execPath, [
-    path.join(root, "node_modules", "web-ext", "bin", "web-ext.js"), "build",
-    "--source-dir", staging, "--artifacts-dir", path.join(root, "web-ext-artifacts"), "--overwrite-dest"
-  ], { cwd: root, stdio: "inherit" });
-} finally {
-  rmSync(staging, { recursive: true, force: true });
+
+async function build() {
+  const zip = new JSZip();
+  for (const file of files) zip.file(file, await readFile(path.join(root, file)));
+  const manifest = JSON.parse(await zip.file("manifest.json").async("string"));
+  for (const field of ["name", "version"]) {
+    if (typeof manifest[field] !== "string" || !manifest[field].length) {
+      throw new Error(`Manifest must include a nonempty ${field}.`);
+    }
+  }
+  const filename = `${manifest.name}-${manifest.version}.zip`.toLowerCase().replace(/[^a-z0-9.-]+/g, "_");
+  const artifacts = path.join(root, "web-ext-artifacts");
+  const buffer = await zip.generateAsync({ compression: "DEFLATE", type: "nodebuffer" });
+  await mkdir(artifacts, { recursive: true });
+  await writeFile(path.join(artifacts, filename), buffer);
+  console.log(`Your web extension is ready: web-ext-artifacts/${filename}`);
 }
+
+build().catch(error => { console.error(error); process.exitCode = 1; });

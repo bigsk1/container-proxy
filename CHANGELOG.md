@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.1
+
+- Remove vulnerable development dependencies by replacing web-ext with Mozilla’s addons-linter and JSZip. Preserve strict linting and the allowlisted release ZIP; update fast-uri and undici to patched versions.
+- Add tooling regression tests for archive contents, secret exclusion, build failures, and lint warning/error exit codes.
+- Update the pinned Node setup action, select the latest Node 24 patch in CI, and retain the Firefox submission ZIP as a downloadable Actions artifact for 30 days.
+
 ## 1.1.0
 
 - Fix the first-open popup and first-request startup race. Register MV3 event listeners synchronously and wait for stored assignments before reading or routing.
